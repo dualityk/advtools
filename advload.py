@@ -12,6 +12,7 @@ STAGE2 = 0x29
 
 
 import serial, struct, time 
+from functools import reduce
 
 adv = serial.Serial(SERIAL, 19200, timeout=2, xonxoff=False, rtscts=False) 
 
@@ -22,7 +23,7 @@ def sendloader(connection):
     l=open(LOADER,'r')
     l.seek(STAGE2)
     loader=l.read()
-    print "loader bytes", len(loader), "so FF17 should be", hex(len(loader))
+    print("loader bytes", len(loader), "so FF17 should be", hex(len(loader)))
     connection.write(loader)
     if connection.read(1) and sendstream(connection,0,'\x00'*10360+'\x42\xa5\x00\x00\x7e'+'\x00'*10115):
       return True
@@ -90,7 +91,7 @@ def rawread(connection, origin, size):
     k=connection.read(1)
     if k == 'k': return j
     else: 
-      print "error at origin",origin
+      print("error at origin",origin)
       return [j,k]
   
 # Get checksum for data.
@@ -167,7 +168,7 @@ def cmdstring(address, size, cmd):
     
 # Find a checksum (shamelessly stolen)
 def checksum256(st):
-    return reduce(lambda x,y:x+y, map(ord, st)) % 256
+    return reduce(lambda x,y:x+y, list(map(ord, st))) % 256
 
 # Encode magic RLE.
 def tomagic(string):
@@ -215,7 +216,7 @@ def tomagic(string):
     stremain = len(string)-pos
   # End of stream.  
   output += packet + chr(0x80)
-  print "source", len(string), "result", len(output), "packets", pkts, "compressed runs", cpexts, "uncompressed runs", unexts
+  print("source", len(string), "result", len(output), "packets", pkts, "compressed runs", cpexts, "uncompressed runs", unexts)
   return output
     
 # Decode magic RLE
@@ -258,84 +259,84 @@ def sl(): return sendloader(adv)
 
 # Disk read application, returns disk image if successful.  (x = diskread(adv))
 def diskread(connection): 
-  print "Send stage 2 loader"
+  print("Send stage 2 loader")
   if not sendloader(connection): return False
-  print "Send pretty picture"
+  print("Send pretty picture")
   if not sendstream(connection,0,open('fread.advpic').read()): return False
-  print "Send disk read component"
+  print("Send disk read component")
   if not sendblock(connection,0xe000,open('fread.bin').read()): return False
-  print "Boot"
+  print("Boot")
   boot(connection,0xe000)
-  print "Wait for serial data, ctrl-c to interrupt"
+  print("Wait for serial data, ctrl-c to interrupt")
   tracks = [b'']*70
   try:
     for i in range(35):
       while len(tracks[i]) < 5120:
         tracks[i]+=connection.read()
-      print "Received side 0 track",i
+      print("Received side 0 track",i)
       j = 69-i		# side 1 tracks are reverse order
       while len(tracks[j]) < 5120:
         tracks[j]+=connection.read()
-      print "Received side 1 track",j
-    print "Got it."
+      print("Received side 1 track",j)
+    print("Got it.")
     if connection.read()=='\xab':
-      print "Read complete, returned to stage 1"
+      print("Read complete, returned to stage 1")
   except KeyboardInterrupt:
-    print "Interrupted, returning what was read so far"
+    print("Interrupted, returning what was read so far")
     return [tracks, False]
   return tracks
 
 # Read only the metadata (sector ID and CRC) from the disk.  For debug only.
 def disksectorids(connection): 
-  print "Send stage 2 loader"
+  print("Send stage 2 loader")
   if not sendloader(connection): return False
-  print "Send pretty picture"
+  print("Send pretty picture")
   if not sendstream(connection,0,open('fread.advpic').read()): return False
-  print "Send disk read component"
+  print("Send disk read component")
   if not sendblock(connection,0xe000,open('fsecid.bin').read()): return False
-  print "Boot"
+  print("Boot")
   boot(connection,0xe000)
-  print "Wait for serial data, ctrl-c to interrupt"
+  print("Wait for serial data, ctrl-c to interrupt")
   tracks = [b'']*70
   try:
     for i in range(35):
       while len(tracks[i]) < 20:
         tracks[i]+=connection.read()
-      print "Received side 0 track",i
+      print("Received side 0 track",i)
       j = 69-i		# side 1 tracks are reverse order
       while len(tracks[j]) < 20:
         tracks[j]+=connection.read()
-      print "Received side 1 track",j
-    print "Got it."
+      print("Received side 1 track",j)
+    print("Got it.")
     if connection.read()=='\xab':
-      print "Read complete, returned to stage 1"
+      print("Read complete, returned to stage 1")
   except KeyboardInterrupt:
-    print "Interrupted, returning what was read so far"
+    print("Interrupted, returning what was read so far")
     return [tracks, False]
   return tracks
 
 # Not implemented yet.
 def fddlib(connection):
-  print "Send stage 2 loader"
+  print("Send stage 2 loader")
   if not sendloader(connection): return False
-  print "Send fdd library"
+  print("Send fdd library")
   if not sendblock(connection,0xe000,open('lib/fdd.bin').read()): return False
-  print "Boot"
+  print("Boot")
   return boot(connection,0xe000)
 
   
 # Disk write utility.
 def diskwrite(connection, image):
   disk=readnsi(image)
-  print "Send second stage loader"
+  print("Send second stage loader")
   if not sendloader(connection): return False
-  print "Send pretty picture"
+  print("Send pretty picture")
   if not sendstream(connection,0,open('fwrite.advpic').read()): return False
-  print "Send disk writer component"
+  print("Send disk writer component")
   if not sendblock(connection,0xe000,open('fwrite.bin').read()): return False
-  print "Boot"
+  print("Boot")
   if not boot(connection,0xe000): return False
-  print "Send image"
+  print("Send image")
   return rawsendimage(connection, disk)
 
 # Send diskimage to writer on Advantage.
@@ -348,13 +349,13 @@ def rawsendimage(connection, image):
       query=connection.read()
     query=ord(query)
     if query == 0xab:
-      print "Done"
+      print("Done")
       return True
     elif query >= 0xf0:
-      print "Error"
+      print("Error")
       return chr(query)+adv.read(3)
     else:
-      print "Sending requested cylinders from", query
+      print("Sending requested cylinders from", query)
       for i in range(5):
         tracks += image[query+i] + image[69-query-i]
       connection.write(tomagic(tracks))
