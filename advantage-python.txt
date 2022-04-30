@@ -1,0 +1,78 @@
+North Star Advantage tools
+ian butler 2017, 2019
+
+The PC component is the Python program advload.py.  There is no direct
+interface; you load it with "python -i advload.py" and interact with it from
+the immediate prompt.
+
+
+The Advantage component is a "toggled in" stub typed in before booting; this
+stub receives the rest of the boot loader from the Python program.  The full
+boot loader is also interactive; it can read or write blocks of memory,
+access I/O ports, and jump to a location in memory.
+
+The Advantage side assembler was done with z80asm and is probably well
+enough documented in the comments.
+
+A quick start would be:
+
+1. Connect Advantage and PC with a serial cable
+2. Make sure the serial port name is correct at the top of advload.py
+3. Type in the stage 1 loader into the Advantage monitor and launch
+   (big printable PDF instructions included: stage1.pdf)
+4. Launch advload.py and try "sendloader(adv)" -- should return True
+5. Try a command: "youawake(adv)" should return True
+
+Resetting machine doesn't reset memory; so, if you didn't clobber the loader
+with another program, you can just "JFF00" from the monitor and send the
+second stage loader again.
+
+To grab a copy of the boot ROM, do steps 1-4 above, then:
+rom = getblock(adv, 0x8000, 4096)
+open('myrom.bin','w').write(rom)
+
+To grab a disk image, do only steps 1-3 above (no sendloader), then:
+disk = diskread(adv)
+(then, if it works:)
+writensi(disk, 'filename.dsk')
+
+To write a disk image, do only steps 1-3, then:
+diskwrite(adv, 'filename.dsk')
+
+In memory, disk images are stored as an array of 70 strings, one per track.
+
+
+--- Functions:
+sendloader(adv): send stage 2 boot loader, returns True if it worked.
+
+getblock(adv, origin, size): retrieve [size] bytes starting at [origin]
+	- Does checksum error checking
+
+sendblock(adv, origin, data): send [data] string starting at [origin]
+	- Does checksum error checking
+
+sendstream(adv, origin, data): put [data] string at [origin]
+	- This does rudimentary RLL type compression before sending
+	- No checksums
+
+rawread, rawwrite, rawchk, rawnull, rawcrwrite:
+	- Direct commands to boot loader, not needed for general use
+
+boot(adv, address): jump to [address] (hopefully you put something there)
+
+ioread(adv, port): read from I/O port
+iowrite(adv, port, data): write [data] byte to I/O port
+	- These can be used to configure peripherals and memory.
+
+youawake(adv): check to see if boot loader is answering
+
+diskread(adv): disk reader application
+	- Sends loader, image, and program, executes, and retrieves data
+	- Sort of has error checking, but will not read bad disks.
+	- Reset required after each disk read (but you can JFF00 and do
+	another)
+
+diskwrite(adv, image): disk writer application
+	- Same as diskread, but writes!
+
+--
