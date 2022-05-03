@@ -20,18 +20,18 @@ adv = serial.Serial(SERIAL, 19200, timeout=2, xonxoff=False, rtscts=False)
 def sendloader(connection):
     connection.reset_input_buffer()
     connection.reset_output_buffer()
-    l=open(LOADER,'r')
+    l=open(LOADER,'rb')
     l.seek(STAGE2)
     loader=l.read()
     print("loader bytes", len(loader), "so FF17 should be", hex(len(loader)))
     connection.write(loader)
-    if connection.read(1) and sendstream(connection,0,'\x00'*10360+'\x42\xa5\x00\x00\x7e'+'\x00'*10115):
+    if connection.read(1) and sendstream(connection,0,b'\x00'*10360+b'\x42\xa5\x00\x00\x7e'+b'\x00'*10115):
       return True
     else: return False
     
 # Retrieve a block of data of any size, with error checking.
 def getblock(connection, origin, size):
-  data = ''
+  data = b''
   while size:
     if size > 255: 
       request = 0
@@ -89,7 +89,7 @@ def rawread(connection, origin, size):
     if size == 0: size = 256
     j=connection.read(size)
     k=connection.read(1)
-    if k == 'k': return j
+    if k == b'k': return j
     else: 
       print("error at origin",origin)
       return [j,k]
@@ -99,7 +99,7 @@ def rawchk(connection, origin, size):
     if size == 256: size = 0
     connection.write(cmdstring(origin, size, 2))
     j=connection.read(1)
-    if len(j): return ord(j)
+    if len(j): return j[0]
     else: return False
      
 # Write a block of data.
@@ -110,13 +110,13 @@ def rawwrite(connection, origin, block):
       askfor = len(block)
     connection.write(cmdstring(origin, askfor, 0))
     connection.write(block)
-    if connection.read(1) == 'r': return True
+    if connection.read(1) == b'r': return True
     else: return False
 
 # Null a memory block.
 def rawnull(connection, origin, size):
     connection.write(cmdstring(origin, size, 3))
-    if connection.read(1) == 'n': return True
+    if connection.read(1) == b'n': return True
     else: return False
     
 # Boot!  Jump to some location and away you go.
@@ -128,7 +128,7 @@ def boot(connection, origin):
 def rawcwrite(connection, origin, data):
     connection.write(cmdstring(origin, 0, 5))
     connection.write(data)
-    if connection.read(1) == 'c': return True
+    if connection.read(1) == b'c': return True
     else: return False
 
 # Port read
@@ -149,7 +149,7 @@ def iowrite(connection, port, data):
 
 # Combine tracks and write disk image to disk.
 def writensi(image, file):
-  f=open(file,'w')
+  f=open(file,'wb')
   for i in range(70):
     f.write(image[i])
   f.close()
@@ -157,7 +157,7 @@ def writensi(image, file):
 # Read nsi image from disk and split into tracks.
 def readnsi(file):
   image=[b'']*70
-  f=open(file,'r')
+  f=open(file,'rb')
   for i in range(70):
     image[i]=f.read(5120)
   return image
@@ -168,7 +168,7 @@ def cmdstring(address, size, cmd):
     
 # Find a checksum (shamelessly stolen)
 def checksum256(st):
-    return reduce(lambda x,y:x+y, list(map(ord, st))) % 256
+    return reduce(lambda x,y:x+y, list(map(lambda x:x, st))) % 256
 
 # Encode magic RLE.
 def tomagic(string):
@@ -187,7 +187,7 @@ def tomagic(string):
       packet = b''
       pkts += 1
     elif len(packet) == 255:
-      output += packet + '\x00'
+      output += packet + b'\x00'
       packet = b''
       pkts += 1
       
@@ -199,7 +199,7 @@ def tomagic(string):
       while pos < len(string) and count < 128 and string[pos] == char:
         count += 1
         pos += 1
-      packet += chr(count+127)+char
+      packet += bytes([count+127, char])
     else:
     # Uncompressed case.      
       unexts += 1
@@ -210,12 +210,12 @@ def tomagic(string):
         if pos+1 < len(string) and string[pos] == string[pos+1]:
           break
         count += 1
-        raw += string[pos]
+        raw += bytes([string[pos]])
         pos += 1
-      packet += chr(count)+raw
+      packet += (bytes([count]) + raw)
     stremain = len(string)-pos
   # End of stream.  
-  output += packet + chr(0x80)
+  output += packet + b'\x80'
   print("source", len(string), "result", len(output), "packets", pkts, "compressed runs", cpexts, "uncompressed runs", unexts)
   return output
     
@@ -224,14 +224,14 @@ def frommagic(string):
   output = b''
   pos = 0
   while pos < len(string):
-    count = ord(string[pos]) & 0x7f
-    cflag = ord(string[pos]) & 0x80
+    count = string[pos] & 0x7f
+    cflag = string[pos] & 0x80
     pos += 1 
     # Regular case: count is nonzero
     if count:
       if cflag:
         # Run length
-        output += string[pos]*(count+1)
+        output += bytes([string[pos]]*(count+1))
         pos += 1
       else:
         # Raw data        
@@ -247,8 +247,8 @@ def frommagic(string):
 # Is this thing on?
 def youawake(connection):        
   connection.reset_input_buffer()
-  connection.write('    ')
-  if connection.read() == '?': return True 
+  connection.write(b'    ')
+  if connection.read() == b'?': return True 
   else: return False
 
 
