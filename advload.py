@@ -121,6 +121,7 @@ def rawnull(connection, origin, size):
     
 # Boot!  Jump to some location and away you go.
 def boot(connection, origin):
+    # Note 0 means do a loop 256 times to insure 'J' is returned
     connection.write(cmdstring(origin, 0, 4))
     return connection.read(1)
     

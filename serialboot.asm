@@ -177,6 +177,7 @@ $LOOP6:
         in      a,(CTRL)        ; and wait for send complete
         and     TXREADY
         jr      z,$LOOP6
+$DELAY: djnz    $DELAY          ; delay based on b operand
         jp      (hl)            ; then jump
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
